@@ -294,6 +294,10 @@
             <option value="2024">FY 2024</option>
             <option value="2023">FY 2023</option>
           </select>
+          <select id="levelSelect" title="Awards vs Transactions">
+            <option value="transactions" selected>Spending Level: Transactions</option>
+            <option value="awards">Spending Level: Awards</option>
+          </select>
           <select id="scaleSelect" title="Color scale">
             <option value="log" selected>Scale: Log (more contrast)</option>
             <option value="linear">Scale: Linear</option>
@@ -307,7 +311,7 @@
         <div class="kv">
           <div>
             <strong>Program filter</strong><br />
-            <span>Assistance Listings: 93.575 + 93.596 (CCDF)</span>
+            <span>Program Numbers: 93.575 + 93.596 (CCDF)</span>
           </div>
           <div class="mono">CCDF</div>
         </div>
@@ -321,8 +325,8 @@
         </div>
 
         <p class="hint">
-          If LIVE loads, you’ll see federal award obligations associated with CCDF Assistance Listings.
-          County and recipient views depend on how awards report location fields; if the API can’t return consistent aggregates, this falls back to demo.
+          LIVE uses USAspending aggregations. If county/recipient location fields aren’t consistently populated for a slice,
+          those views may fallback to demo data.
         </p>
 
         <div class="toast" id="toast"></div>
@@ -391,6 +395,7 @@
   // ---- App state ----
   const state = {
     fy: 2025,
+    spendingLevel: "transactions", // "transactions" | "awards"
     view: "home",            // home | states | counties | recipients
     scale: "log",            // log | linear
     mode: "live",            // live | demo
@@ -400,8 +405,8 @@
     live: {
       total: null,
       states: null,
-      countiesByState: new Map(),     // "MN" -> [{code,name,amount}]
-      recipientsByCounty: new Map()   // "MN:27053" -> [{name, amount, awardCount?}]
+      countiesByState: new Map(),
+      recipientsByCounty: new Map()
     }
   };
 
@@ -452,8 +457,7 @@
     });
   }
 
-  // ---- Color scale w/ better contrast + labeled legend ----
-  // We use a vivid ramp: deep purple -> cyan -> neon green.
+  // ---- Color scale ramp ----
   function mix(c1,c2,t){
     const A = hexToRgb(c1), B = hexToRgb(c2);
     return rgbToHex({
@@ -473,7 +477,6 @@
     return "#"+to(r)+to(g)+to(b);
   }
   function ramp(t){
-    // piecewise ramp for more perceptual contrast
     if (t <= 0.5) return mix("#2A1B55", "#00D7FF", t/0.5);
     return mix("#00D7FF", "#31E981", (t-0.5)/0.5);
   }
@@ -482,14 +485,12 @@
     if (state.scale === "linear"){
       return clamp((v - minPos) / (maxPos - minPos || 1), 0, 1);
     }
-    // log
     const ln = Math.log(v), a = Math.log(minPos), b = Math.log(maxPos);
     return clamp((ln - a) / ((b - a) || 1), 0, 1);
   }
   function buildLegend(minPos, maxPos){
-    // 6 bins, log-spaced or linear-spaced depending on selected scale
-    const bins = [];
     const N = 6;
+    const cuts = [];
     for (let i=0;i<N;i++){
       let v;
       if (state.scale === "linear"){
@@ -498,45 +499,59 @@
         const a = Math.log(minPos), b = Math.log(maxPos);
         v = Math.exp(a + (b-a) * (i/(N-1)));
       }
-      bins.push(v);
+      cuts.push(v);
     }
-    // swatches represent ranges; label by approximate cutoff
-    return bins.map((v,i)=>{
+    return cuts.map((v,i)=>{
       const t = normValue(v, minPos, maxPos);
-      return { color: ramp(t), label: i===0 ? `≈ ${money(v)}` : `≈ ${money(v)}` };
+      let label;
+      if (i === 0) label = `≈ ${money(v)} (low)`;
+      else if (i === cuts.length-1) label = `≈ ${money(v)} (high)`;
+      else label = `≈ ${money(v)}`;
+      return { color: ramp(t), label };
     });
   }
 
-  // ---- Data access helpers (USAspending) ----
-  // We try multiple filter variants because schemas/accepted keys can vary.
-  // If anything fails, we fall back to DEMO and show the debug payload.
-  const API = "https://api.usaspending.gov/api/v2/search/spending_by_category";
+  // ---- USAspending endpoints (maps use spending_by_geography) ----
+  const API_GEO = "https://api.usaspending.gov/api/v2/search/spending_by_geography/";
+  const API_CAT = "https://api.usaspending.gov/api/v2/search/spending_by_category/";
 
   function fyRange(fy){
     return { start: `${fy-1}-10-01`, end: `${fy}-09-30` };
   }
 
-  function baseFilters(){
+  // IMPORTANT FIX: use program_numbers for Assistance Listing / CFDA program numbers
+  function baseFilterVariants(){
     const r = fyRange(state.fy);
-    // CCDF Assistance Listings: 93.575 and 93.596
-    // We'll attempt both assistance_listing_numbers and cfda, because some endpoints accept one vs the other.
+    const time_period = [{ start_date: r.start, end_date: r.end }];
+
+    // Try a few variants so we survive minor contract differences
     return [
-      { time_period:[{start_date:r.start, end_date:r.end}], assistance_listing_numbers:["93.575","93.596"] },
-      { time_period:[{start_date:r.start, end_date:r.end}], cfda:["93.575","93.596"] },
-      { time_period:[{start_date:r.start, end_date:r.end}], assistance_listing_numbers:["93.575"] },
-      { time_period:[{start_date:r.start, end_date:r.end}], cfda:["93.575"] },
+      { time_period, program_numbers:["93.575","93.596"] },
+      { time_period, program_numbers:["93.575"] },
+      { time_period, program_numbers:["93.596"] },
+      // LAST resort: time only (lets you confirm API works at all)
+      // (We only fall back to this if everything else fails)
+      { time_period }
     ];
   }
 
   async function postJson(url, body){
     const res = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const text = await res.text();
+    let payload = null;
+    try{ payload = text ? JSON.parse(text) : null; }catch{ payload = text; }
+    if (!res.ok){
+      const err = new Error(`HTTP ${res.status}`);
+      err.status = res.status;
+      err.payload = payload;
+      err.url = url;
+      err.body = body;
+      throw err;
+    }
+    return payload;
   }
 
   function normalizeAggResults(json){
-    // Many USAspending endpoints return {results:[...]}.
-    // We accept json.results OR json.data OR json.
     const list = json?.results || json?.data || (Array.isArray(json) ? json : null) || [];
     return Array.isArray(list) ? list : [];
   }
@@ -555,7 +570,7 @@
         r.code || r.state_code || r.state || r.abbreviation ||
         (typeof r.shape_code === "string" ? r.shape_code : null) ||
         (typeof r.shape_name === "string" ? r.shape_name.slice(0,2) : null);
-      const amt = pickNumber(r, ["aggregated_amount","aggregatedAmount","amount","total","value","aggregated_obligation","aggregated_outlay"]);
+      const amt = pickNumber(r, ["aggregated_amount","amount","total","value","aggregated_obligation","aggregated_outlay"]);
       if (code && typeof amt === "number") map[String(code).toUpperCase()] = amt;
     }
     return map;
@@ -573,7 +588,6 @@
       const amt = pickNumber(r, ["aggregated_amount","amount","total","value","aggregated_obligation","aggregated_outlay"]);
       if (code && typeof amt === "number") out.push({ code:String(code), name:String(name), amount:amt });
     }
-    // Sometimes county endpoint returns state totals mixed in; keep 5-digit fips when possible
     out.sort((a,b)=>b.amount-a.amount);
     return out;
   }
@@ -590,57 +604,99 @@
     return out;
   }
 
+  // ---- Live loaders (geography-first) ----
   async function loadStatesLive(){
-    const url = `${API}/state_territory/`;
-    const variants = baseFilters();
+    const variants = baseFilterVariants();
     let lastErr = null;
 
+    // Try spending_by_geography first (best for map)
     for (const f of variants){
-      const body = { filters: f, limit: 60, page: 1, sort: "aggregated_amount", order:"desc", subawards:false };
+      const body = {
+        filters: f,
+        geo_layer: "state",
+        scope: "place_of_performance",
+        spending_level: state.spendingLevel,
+        subawards: false
+      };
       try{
-        const json = await postJson(url, body);
+        const json = await postJson(API_GEO, body);
         const results = normalizeAggResults(json);
         const map = normalizeStateMap(results);
         const count = Object.keys(map).length;
         if (count >= 30){
           state.live.states = map;
-          // total could be sum; we also store an approximate total
           state.live.total = Object.values(map).reduce((a,b)=>a+b,0);
           clearToast();
           return true;
         }
-        lastErr = new Error(`Parsed only ${count} states`);
+        lastErr = new Error(`Parsed only ${count} states from GEO`);
       } catch(e){
         lastErr = e;
-        showToast(`⚠️ Live state load failed; trying next filter variant…`, { url, body, error: String(e) });
+        showToast(`⚠️ Live state load failed (GEO). Trying next variant…`, {
+          url: e.url || API_GEO, status: e.status, error: String(e), payload: e.payload, body: e.body
+        });
       }
     }
 
-    showToast(`❌ Live state load failed — falling back to demo.`, { lastError: String(lastErr) });
+    // Fallback: spending_by_category/state_territory (older behavior)
+    for (const f of variants){
+      const body = {
+        filters: f,
+        spending_level: state.spendingLevel,
+        limit: 60,
+        page: 1,
+        sort: "aggregated_amount",
+        order:"desc",
+        subawards:false
+      };
+      try{
+        const json = await postJson(API_CAT + "state_territory/", body);
+        const results = normalizeAggResults(json);
+        const map = normalizeStateMap(results);
+        const count = Object.keys(map).length;
+        if (count >= 30){
+          state.live.states = map;
+          state.live.total = Object.values(map).reduce((a,b)=>a+b,0);
+          clearToast();
+          return true;
+        }
+        lastErr = new Error(`Parsed only ${count} states from CAT`);
+      } catch(e){
+        lastErr = e;
+        showToast(`⚠️ Live state load failed (CAT). Trying next variant…`, {
+          url: e.url || (API_CAT + "state_territory/"),
+          status: e.status, error: String(e), payload: e.payload, body: e.body
+        });
+      }
+    }
+
+    showToast(`❌ Live state load failed — falling back to demo.`, { lastError: String(lastErr), status: lastErr?.status, payload: lastErr?.payload });
     return false;
   }
 
   async function loadCountiesLive(stateCode){
-    const url = `${API}/county/`;
-    const variants = baseFilters();
+    const variants = baseFilterVariants();
+    let lastErr = null;
 
-    const locationVariants = [
-      // Place of performance
-      (f) => ({...f, place_of_performance_locations:[{ country:"USA", state: stateCode }] }),
-      (f) => ({...f, place_of_performance_locations:[{ state: stateCode }] }),
-      (f) => ({...f, place_of_performance_locations:[{ country:"USA", state_code: stateCode }] }),
-      // Recipient location
-      (f) => ({...f, recipient_locations:[{ country:"USA", state: stateCode }] }),
-      (f) => ({...f, recipient_locations:[{ state: stateCode }] }),
+    // Try GEO with explicit state filter using place_of_performance_locations
+    // (If the API rejects this shape, the toast will show the exact complaint.)
+    const locFns = [
+      (base) => ({...base, place_of_performance_locations:[{ country:"USA", state: stateCode }] }),
+      (base) => ({...base, recipient_locations:[{ country:"USA", state: stateCode }] })
     ];
 
-    let lastErr = null;
     for (const base of variants){
-      for (const addLoc of locationVariants){
+      for (const addLoc of locFns){
         const f = addLoc(base);
-        const body = { filters: f, limit: 100, page: 1, sort:"aggregated_amount", order:"desc", subawards:false };
+        const body = {
+          filters: f,
+          geo_layer: "county",
+          scope: "place_of_performance",
+          spending_level: state.spendingLevel,
+          subawards: false
+        };
         try{
-          const json = await postJson(url, body);
+          const json = await postJson(API_GEO, body);
           const results = normalizeAggResults(json);
           const list = normalizeCountyList(results);
           if (list.length >= 10){
@@ -651,35 +707,42 @@
           lastErr = new Error(`Parsed only ${list.length} counties`);
         } catch(e){
           lastErr = e;
-          showToast(`⚠️ Live county load failed; trying next variant…`, { url, body, error: String(e) });
+          showToast(`⚠️ Live county load failed; trying next variant…`, {
+            url: e.url || API_GEO, status: e.status, error: String(e), payload: e.payload, body: e.body
+          });
         }
       }
     }
-    showToast(`❌ Live county load failed — using demo/fallback county view.`, { lastError: String(lastErr) });
+
+    showToast(`❌ Live county load failed — using demo/fallback county view.`, { lastError: String(lastErr), status: lastErr?.status, payload: lastErr?.payload });
     return false;
   }
 
   async function loadRecipientsLive(stateCode, countyCode){
-    const url = `${API}/recipient/`;
-    const variants = baseFilters();
+    const variants = baseFilterVariants();
+    let lastErr = null;
 
     const locVariants = [
       (f) => ({...f, place_of_performance_locations:[{ state: stateCode, county: countyCode }] }),
-      (f) => ({...f, place_of_performance_locations:[{ state: stateCode, county_code: countyCode }] }),
       (f) => ({...f, recipient_locations:[{ state: stateCode, county: countyCode }] }),
-      (f) => ({...f, recipient_locations:[{ state: stateCode, county_code: countyCode }] }),
-      // If county keys aren't accepted, at least filter to state so you get something meaningful
       (f) => ({...f, place_of_performance_locations:[{ state: stateCode }] }),
-      (f) => ({...f, recipient_locations:[{ state: stateCode }] }),
+      (f) => ({...f, recipient_locations:[{ state: stateCode }] })
     ];
 
-    let lastErr = null;
     for (const base of variants){
       for (const addLoc of locVariants){
         const f = addLoc(base);
-        const body = { filters: f, limit: 50, page: 1, sort:"aggregated_amount", order:"desc", subawards:false };
+        const body = {
+          filters: f,
+          spending_level: state.spendingLevel,
+          limit: 50,
+          page: 1,
+          sort:"aggregated_amount",
+          order:"desc",
+          subawards:false
+        };
         try{
-          const json = await postJson(url, body);
+          const json = await postJson(API_CAT + "recipient/", body);
           const results = normalizeAggResults(json);
           const list = normalizeRecipientList(results);
           if (list.length >= 5){
@@ -690,11 +753,14 @@
           lastErr = new Error(`Parsed only ${list.length} recipients`);
         } catch(e){
           lastErr = e;
-          showToast(`⚠️ Live recipient load failed; trying next variant…`, { url, body, error: String(e) });
+          showToast(`⚠️ Live recipient load failed; trying next variant…`, {
+            url: e.url || (API_CAT + "recipient/"), status: e.status, error: String(e), payload: e.payload, body: e.body
+          });
         }
       }
     }
-    showToast(`❌ Live recipient load failed — using demo/fallback recipient list.`, { lastError: String(lastErr) });
+
+    showToast(`❌ Live recipient load failed — using demo/fallback recipient list.`, { lastError: String(lastErr), status: lastErr?.status, payload: lastErr?.payload });
     return false;
   }
 
@@ -726,7 +792,6 @@
       if (live && live.length) return live;
     }
     if (code === "MN") return DEMO.countiesMN;
-    // fallback synthetic
     const base = Math.max(stateAmount(code), 10000000);
     const out = [];
     let rem = base;
@@ -896,7 +961,7 @@
     viz.appendChild(svg);
   }
 
-  // ---- Render: State heatmap with labeled legend ----
+  // ---- Render: States ----
   function renderStates(){
     $("#vizTitle").textContent = "State allocations (federal award obligations)";
     $("#vizSubtitle").textContent = "Click a state tile → counties. Legend shows approximate $ ranges.";
@@ -929,9 +994,8 @@
           const v = m[code] || 0;
           const t = normValue(v, minPos, maxPos);
           const col = ramp(t);
-          // Stronger contrast: darker base + more saturated highlight
-          tile.style.background = `linear-gradient(135deg, rgba(0,0,0,.18), ${col}AA)`;
-          tile.style.borderColor = `rgba(255,255,255,${0.12 + 0.28*t})`;
+          tile.style.background = `linear-gradient(135deg, rgba(0,0,0,.18), ${col}CC)`;
+          tile.style.borderColor = `rgba(255,255,255,${0.12 + 0.34*t})`;
           tile.textContent = code;
 
           tile.addEventListener("mousemove",(ev)=>{
@@ -968,20 +1032,20 @@
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <span class="pill" title="Color meaning">
             <span class="dot good"></span>
-            <span>${state.scale.toUpperCase()} scale</span>
+            <span>${state.scale.toUpperCase()} • ${state.spendingLevel.toUpperCase()}</span>
           </span>
         </div>
       </div>
       <div class="legendGrid" id="legendGrid"></div>
     `;
     const grid = legend.querySelector("#legendGrid");
-    sw.forEach((b,i)=>{
+    sw.forEach((b)=>{
       const box = document.createElement("div");
       box.className = "sw";
       box.innerHTML = `
         <div class="chip" style="background:${b.color}CC"></div>
         <div>
-          <b>${i===0 ? "Lower" : (i===sw.length-1 ? "Higher" : "Mid")}</b><br/>
+          <b>≈</b><br/>
           <span>${b.label}</span>
         </div>
       `;
@@ -1140,7 +1204,7 @@
       const blob = new Blob([toCsv(filtered)], {type:"text/csv;charset=utf-8"});
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `recipients_${st}_${c.code}_FY${state.fy}.csv`;
+      a.download = `recipients_${st}_${c.code}_FY${state.fy}_${state.spendingLevel}.csv`;
       a.click();
       URL.revokeObjectURL(a.href);
     }
@@ -1158,7 +1222,12 @@
   async function ensureLive(){
     state.loading = true;
     setMode("live");
-    showToast(`Loading LIVE state totals… <span class="spinner"></span>`);
+    showToast(`Loading LIVE state totals… <span class="spinner"></span>`, {
+      fy: state.fy,
+      spending_level: state.spendingLevel,
+      program_numbers: ["93.575","93.596"]
+    });
+
     const ok = await loadStatesLive();
     if (!ok){
       setMode("demo");
@@ -1219,6 +1288,16 @@
     render();
   });
 
+  $("#levelSelect").addEventListener("change", async (e)=>{
+    state.spendingLevel = e.target.value;
+    state.live.total = null;
+    state.live.states = null;
+    state.live.countiesByState.clear();
+    state.live.recipientsByCounty.clear();
+    await ensureLive();
+    render();
+  });
+
   $("#scaleSelect").addEventListener("change", (e)=>{
     state.scale = e.target.value;
     render();
@@ -1228,7 +1307,6 @@
   (async ()=>{
     await ensureLive();
     if (state.mode !== "live"){
-      // demo fallback
       setMode("demo");
       state.mode="demo";
     }
