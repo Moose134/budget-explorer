@@ -1,0 +1,1240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Budget Explorer — Child Care Assistance (CCDF)</title>
+<style>
+  :root{
+    --bg0:#070A12;
+    --bg1:#0B1021;
+    --card: rgba(255,255,255,.06);
+    --stroke: rgba(255,255,255,.12);
+    --stroke2: rgba(255,255,255,.20);
+    --text: rgba(255,255,255,.92);
+    --muted: rgba(255,255,255,.70);
+    --faint: rgba(255,255,255,.45);
+    --good: #31E981;
+    --warn: #FFCC66;
+    --bad:  #FF5C77;
+    --a:#7C5CFF;
+    --b:#00D7FF;
+    --shadow: 0 20px 60px rgba(0,0,0,.55);
+    --r: 18px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    color:var(--text);
+    background:
+      radial-gradient(1200px 700px at 15% 12%, rgba(124,92,255,.22), transparent 55%),
+      radial-gradient(900px 600px at 85% 22%, rgba(0,215,255,.18), transparent 58%),
+      radial-gradient(900px 600px at 55% 88%, rgba(49,233,129,.12), transparent 60%),
+      linear-gradient(180deg, var(--bg0), var(--bg1));
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1200px;margin:0 auto;padding:22px 18px 60px;}
+  header{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:42px;height:42px;border-radius:14px;
+    background:
+      radial-gradient(12px 12px at 35% 35%, rgba(255,255,255,.9), rgba(255,255,255,0) 60%),
+      linear-gradient(135deg, rgba(124,92,255,.95), rgba(0,215,255,.85));
+    box-shadow: 0 14px 30px rgba(124,92,255,.20), 0 14px 30px rgba(0,215,255,.14);
+    border: 1px solid rgba(255,255,255,.16);
+  }
+  .title h1{font-size:16px;margin:0;font-weight:800;letter-spacing:.2px}
+  .title p{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
+  .top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+  .btn{
+    border:1px solid var(--stroke);
+    background: rgba(255,255,255,.06);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 14px;
+    font-weight: 750;
+    font-size: 13px;
+    cursor:pointer;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    display:inline-flex;align-items:center;gap:8px;
+    user-select:none;
+  }
+  .btn:hover{transform: translateY(-1px); background: rgba(255,255,255,.08); border-color: var(--stroke2)}
+  .btn.primary{
+    background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(0,215,255,.85));
+    border-color: rgba(255,255,255,.20);
+    box-shadow: 0 16px 40px rgba(124,92,255,.18), 0 16px 40px rgba(0,215,255,.12);
+  }
+  .pill{
+    display:inline-flex;gap:8px;align-items:center;
+    padding:8px 10px;border-radius:999px;border:1px solid var(--stroke);
+    background: rgba(255,255,255,.04);
+    color: var(--muted);font-size:12.5px;
+  }
+  .dot{width:9px;height:9px;border-radius:99px;background:var(--warn);box-shadow:0 0 0 3px rgba(255,204,102,.12)}
+  .dot.good{background:var(--good);box-shadow:0 0 0 3px rgba(49,233,129,.12)}
+  .dot.bad{background:var(--bad);box-shadow:0 0 0 3px rgba(255,92,119,.12)}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:14px;align-items:start}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+  .card{
+    background: var(--card);
+    border:1px solid var(--stroke);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+    overflow:hidden;
+    backdrop-filter: blur(10px);
+  }
+  .hd{
+    padding:14px 14px 12px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap
+  }
+  .hd h2{margin:0;font-size:14px;letter-spacing:.2px}
+  .hd p{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.35}
+  .bd{padding:14px}
+  .mono{font-family:var(--mono)}
+  .kv{
+    display:grid;grid-template-columns:1fr auto;gap:10px;
+    padding:10px 10px;border-radius:14px;
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(255,255,255,.09);
+    margin-bottom:10px;
+  }
+  .kv strong{font-size:12.5px}
+  .kv span{font-size:12.5px;color:var(--muted)}
+  .sep{height:1px;background:rgba(255,255,255,.08);margin:12px 0}
+  .crumbs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+  .crumbs button{border:none;background:none;color:inherit;cursor:pointer;padding:4px 8px;border-radius:10px}
+  .crumbs button:hover{background: rgba(255,255,255,.07)}
+  .hint{font-size:12.5px;color:var(--muted);line-height:1.35}
+  .viz{min-height:560px;position:relative}
+  .viz-inner{padding:10px 10px 14px}
+  .tip{
+    position:absolute;pointer-events:none;z-index:50;
+    padding:10px 12px;border-radius:14px;
+    background: rgba(10,12,22,.90);
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow: 0 20px 50px rgba(0,0,0,.55);
+    transform: translate(-50%, -110%);
+    width: min(340px, 86vw);
+    opacity:0;transition: opacity .08s ease;
+    backdrop-filter: blur(10px);
+  }
+  .tip.show{opacity:1}
+  .tip .t1{font-weight:900;font-size:13px}
+  .tip .t2{margin-top:4px;font-size:12.5px;color: var(--muted);line-height:1.35}
+  svg{display:block;width:100%;height:auto}
+  .link{stroke: rgba(255,255,255,.14); stroke-width: 1.2}
+  .node{cursor:pointer;transition: filter .12s ease}
+  .node:hover{filter: drop-shadow(0 18px 30px rgba(0,0,0,.55))}
+  .node circle{stroke: rgba(255,255,255,.18);stroke-width:1}
+  .node .label{fill: rgba(255,255,255,.92);font-weight:900;letter-spacing:.2px}
+  .node .value{fill: rgba(255,255,255,.72);font-weight:700;font-size:12px}
+  .node.disabled{cursor:not-allowed;opacity:.55}
+  .node.disabled:hover{filter:none}
+  .glow{filter: drop-shadow(0 18px 40px rgba(124,92,255,.18)) drop-shadow(0 18px 40px rgba(0,215,255,.12))}
+  .map{
+    display:grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 8px;
+    padding: 10px;
+  }
+  .tile{
+    width:100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.05);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight: 950;
+    letter-spacing:.5px;
+    font-size: 12px;
+    cursor:pointer;
+    transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    position:relative;
+    user-select:none;
+  }
+  .tile:hover{transform: translateY(-1px); border-color: rgba(255,255,255,.28)}
+  .tile:active{transform: translateY(0px) scale(.99)}
+  .tile.empty{opacity:0; pointer-events:none}
+  .legend{
+    padding: 10px 14px 14px;
+    border-top:1px solid rgba(255,255,255,.08);
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .legendTop{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+  .legendGrid{display:grid;grid-template-columns:repeat(6, 1fr);gap:8px}
+  .sw{
+    border-radius: 14px;
+    border:1px solid rgba(255,255,255,.14);
+    padding: 10px 10px;
+    background: rgba(255,255,255,.04);
+    min-height:56px;
+    display:flex;flex-direction:column;justify-content:space-between;gap:6px
+  }
+  .chip{height:12px;border-radius:999px;border:1px solid rgba(255,255,255,.16)}
+  .sw b{font-size:12px}
+  .sw span{font-size:11.5px;color:var(--muted)}
+  .rows{display:flex;flex-direction:column;gap:10px;padding:6px 4px}
+  .row{
+    display:grid;
+    grid-template-columns: 1fr 220px;
+    gap: 12px;
+    align-items:center;
+    padding: 10px 10px;
+    border-radius: 16px;
+    border:1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.045);
+    cursor:pointer;
+    transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .row:hover{transform: translateY(-1px); border-color: rgba(255,255,255,.20); background: rgba(255,255,255,.06)}
+  .row .name{font-weight:900}
+  .row .meta{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .heat{
+    height: 12px; border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.10);
+    overflow:hidden;
+  }
+  .heat > i{
+    display:block;height:100%;width:0%;
+    background: linear-gradient(90deg, rgba(124,92,255,.65), rgba(0,215,255,.65), rgba(49,233,129,.70));
+    border-right: 1px solid rgba(255,255,255,.22);
+  }
+  table{width:100%; border-collapse:separate; border-spacing:0 10px}
+  th{text-align:left;font-size:12px;color:var(--muted);font-weight:800;padding:0 10px}
+  td{
+    padding:12px 10px;background: rgba(255,255,255,.045);
+    border-top:1px solid rgba(255,255,255,.10);
+    border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  tr td:first-child{border-left:1px solid rgba(255,255,255,.10);border-top-left-radius:14px;border-bottom-left-radius:14px}
+  tr td:last-child{border-right:1px solid rgba(255,255,255,.10);border-top-right-radius:14px;border-bottom-right-radius:14px}
+  .right{text-align:right}
+  .search{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    padding: 10px 14px;
+    border-top:1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.03);
+  }
+  input[type="text"], select{
+    background: rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.14);
+    color: var(--text);
+    border-radius: 14px;
+    padding: 10px 12px;
+    outline:none;font-size: 13px;
+  }
+  input[type="text"]::placeholder{color: rgba(255,255,255,.45)}
+  .grow{flex:1;min-width:180px}
+  .toast{
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(0,0,0,.22);
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height:1.35;
+    display:none;
+  }
+  .toast pre{
+    margin:8px 0 0;padding:10px 10px;border-radius:14px;
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.10);
+    overflow:auto;max-height:220px;
+    color: rgba(255,255,255,.78);
+    font-family: var(--mono);font-size: 11.5px;
+  }
+  .spinner{
+    display:inline-block;width:14px;height:14px;border-radius:99px;
+    border:2px solid rgba(255,255,255,.25);
+    border-top-color: rgba(255,255,255,.85);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin {to{transform: rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div class="title">
+        <h1>Federal Award Explorer — Child Care Assistance (CCDF)</h1>
+        <p>Web → State → County → Recipients (LIVE via USAspending when possible)</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="modePill" class="pill"><span id="modeDot" class="dot"></span><span id="modeText">LIVE preferred (auto-fallback)</span></span>
+      <button class="btn" id="reloadBtn">⟳ Reload Live</button>
+      <button class="btn primary" id="resetBtn">↩ Reset</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <div class="hd">
+        <div>
+          <h2 id="panelTitle">Navigation</h2>
+          <p id="panelSubtitle">Click bubbles and tiles to drill down.</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <select id="fySelect" title="Fiscal year">
+            <option value="2026">FY 2026</option>
+            <option value="2025" selected>FY 2025</option>
+            <option value="2024">FY 2024</option>
+            <option value="2023">FY 2023</option>
+          </select>
+          <select id="scaleSelect" title="Color scale">
+            <option value="log" selected>Scale: Log (more contrast)</option>
+            <option value="linear">Scale: Linear</option>
+          </select>
+        </div>
+      </div>
+      <div class="bd">
+        <div class="crumbs" id="crumbs"></div>
+        <div class="sep"></div>
+
+        <div class="kv">
+          <div>
+            <strong>Program filter</strong><br />
+            <span>Assistance Listings: 93.575 + 93.596 (CCDF)</span>
+          </div>
+          <div class="mono">CCDF</div>
+        </div>
+
+        <div class="kv">
+          <div>
+            <strong>What this “recipient” means</strong><br />
+            <span>Prime federal award recipient (not daycare payment ledger)</span>
+          </div>
+          <div class="mono">Prime</div>
+        </div>
+
+        <p class="hint">
+          If LIVE loads, you’ll see federal award obligations associated with CCDF Assistance Listings.
+          County and recipient views depend on how awards report location fields; if the API can’t return consistent aggregates, this falls back to demo.
+        </p>
+
+        <div class="toast" id="toast"></div>
+      </div>
+    </section>
+
+    <section class="card viz">
+      <div class="hd">
+        <div>
+          <h2 id="vizTitle">Budget web</h2>
+          <p id="vizSubtitle">Click “Child Care Assistance” → states.</p>
+        </div>
+      </div>
+      <div class="viz-inner" id="viz"></div>
+      <div class="tip" id="tip"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const viz = $("#viz");
+  const tip = $("#tip");
+  const toast = $("#toast");
+
+  // ---- Demo fallback (so it never looks broken) ----
+  const DEMO = {
+    webTotal: 13200000000,
+    states: {
+      "CA": 1350000000, "TX": 980000000, "NY": 820000000, "FL": 690000000, "IL": 420000000,
+      "PA": 390000000, "OH": 360000000, "GA": 340000000, "NC": 320000000, "MI": 300000000,
+      "NJ": 260000000, "VA": 240000000, "WA": 235000000, "AZ": 220000000, "MA": 210000000,
+      "IN": 180000000, "TN": 170000000, "MO": 165000000, "MN": 155000000, "WI": 150000000,
+      "CO": 145000000, "MD": 140000000, "SC": 135000000, "AL": 125000000, "LA": 120000000,
+      "KY": 115000000, "OR": 112000000, "OK": 110000000, "CT": 104000000, "IA": 98000000,
+      "MS": 96000000, "AR": 92000000, "KS": 90000000, "UT": 86000000, "NV": 84000000,
+      "NM": 78000000, "NE": 74000000, "WV": 70000000, "ID": 66000000, "HI": 62000000,
+      "NH": 58000000, "ME": 56000000, "RI": 54000000, "MT": 52000000, "DE": 50000000,
+      "SD": 46000000, "ND": 44000000, "VT": 42000000, "AK": 40000000, "DC": 38000000,
+      "WY": 36000000
+    },
+    countiesMN: [
+      { code:"27053", name:"Hennepin County", amount: 28000000 },
+      { code:"27123", name:"Ramsey County", amount: 18500000 },
+      { code:"27037", name:"Dakota County", amount: 12200000 },
+      { code:"27003", name:"Anoka County", amount: 11000000 },
+      { code:"27999", name:"Other MN counties (grouped)", amount: 53400000 }
+    ]
+  };
+
+  // ---- Tile map layout (12x6) ----
+  const TILEMAP = [
+    ["WA",0,0],["MT",2,0],["ND",4,0],["MN",6,0],["WI",7,0],["MI",8,0],["VT",10,0],["NH",11,0],
+    ["OR",0,1],["ID",1,1],["WY",2,1],["SD",4,1],["IA",6,1],["IL",7,1],["IN",8,1],["NY",10,1],["ME",11,1],
+    ["CA",0,2],["NV",1,2],["UT",2,2],["CO",3,2],["NE",4,2],["MO",6,2],["KY",7,2],["OH",8,2],["PA",9,2],["MA",10,2],
+    ["AZ",1,3],["NM",2,3],["KS",4,3],["AR",6,3],["TN",7,3],["WV",8,3],["VA",9,3],["NJ",10,3],["CT",11,3],
+    ["TX",2,4],["OK",3,4],["LA",4,4],["MS",5,4],["AL",6,4],["GA",7,4],["NC",8,4],["SC",9,4],["MD",10,4],["DE",11,4],
+    ["AK",0,5],["HI",1,5],["FL",8,5],["DC",10,5],["RI",11,2]
+  ];
+  const ALL_STATES = [
+    "AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN",
+    "MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"
+  ];
+
+  // ---- App state ----
+  const state = {
+    fy: 2025,
+    view: "home",            // home | states | counties | recipients
+    scale: "log",            // log | linear
+    mode: "live",            // live | demo
+    loading: false,
+    selectedState: null,     // "MN"
+    selectedCounty: null,    // {code,name,amount}
+    live: {
+      total: null,
+      states: null,
+      countiesByState: new Map(),     // "MN" -> [{code,name,amount}]
+      recipientsByCounty: new Map()   // "MN:27053" -> [{name, amount, awardCount?}]
+    }
+  };
+
+  // ---- Money formatting ----
+  function money(n){
+    if (n == null || !isFinite(n)) return "—";
+    const abs = Math.abs(n);
+    if (abs >= 1e12) return "$" + (n/1e12).toFixed(2) + "T";
+    if (abs >= 1e9)  return "$" + (n/1e9).toFixed(2)  + "B";
+    if (abs >= 1e6)  return "$" + (n/1e6).toFixed(2)  + "M";
+    if (abs >= 1e3)  return "$" + (n/1e3).toFixed(2)  + "K";
+    return "$" + Math.round(n).toLocaleString();
+  }
+  function clamp(x,a,b){ return Math.max(a, Math.min(b,x)); }
+  function esc(s){ return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+
+  // ---- Tooltip ----
+  function showTip(x,y,title,desc){
+    tip.style.left = x+"px";
+    tip.style.top = y+"px";
+    tip.innerHTML = `<div class="t1">${esc(title)}</div><div class="t2">${desc}</div>`;
+    tip.classList.add("show");
+  }
+  function hideTip(){ tip.classList.remove("show"); }
+
+  // ---- Toast ----
+  function showToast(html, obj){
+    toast.style.display = "block";
+    toast.innerHTML = html + (obj ? `<pre>${esc(JSON.stringify(obj, null, 2))}</pre>` : "");
+  }
+  function clearToast(){ toast.style.display="none"; toast.innerHTML=""; }
+
+  // ---- Crumbs ----
+  function setCrumbs(items){
+    const el = $("#crumbs");
+    el.innerHTML = "";
+    items.forEach((it, idx) => {
+      const btn = document.createElement("button");
+      btn.textContent = it.label;
+      btn.onclick = it.onClick;
+      el.appendChild(btn);
+      if (idx !== items.length-1){
+        const sep = document.createElement("span");
+        sep.textContent = "›";
+        sep.style.opacity = .55;
+        el.appendChild(sep);
+      }
+    });
+  }
+
+  // ---- Color scale w/ better contrast + labeled legend ----
+  // We use a vivid ramp: deep purple -> cyan -> neon green.
+  function mix(c1,c2,t){
+    const A = hexToRgb(c1), B = hexToRgb(c2);
+    return rgbToHex({
+      r: Math.round(A.r + (B.r - A.r)*t),
+      g: Math.round(A.g + (B.g - A.g)*t),
+      b: Math.round(A.b + (B.b - A.b)*t),
+    });
+  }
+  function hexToRgb(hex){
+    const h = hex.replace("#","");
+    const v = h.length===3 ? h.split("").map(c=>c+c).join("") : h;
+    const n = parseInt(v,16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  function rgbToHex({r,g,b}){
+    const to = x => x.toString(16).padStart(2,"0");
+    return "#"+to(r)+to(g)+to(b);
+  }
+  function ramp(t){
+    // piecewise ramp for more perceptual contrast
+    if (t <= 0.5) return mix("#2A1B55", "#00D7FF", t/0.5);
+    return mix("#00D7FF", "#31E981", (t-0.5)/0.5);
+  }
+  function normValue(v, minPos, maxPos){
+    if (!v || v <= 0) return 0;
+    if (state.scale === "linear"){
+      return clamp((v - minPos) / (maxPos - minPos || 1), 0, 1);
+    }
+    // log
+    const ln = Math.log(v), a = Math.log(minPos), b = Math.log(maxPos);
+    return clamp((ln - a) / ((b - a) || 1), 0, 1);
+  }
+  function buildLegend(minPos, maxPos){
+    // 6 bins, log-spaced or linear-spaced depending on selected scale
+    const bins = [];
+    const N = 6;
+    for (let i=0;i<N;i++){
+      let v;
+      if (state.scale === "linear"){
+        v = minPos + (maxPos - minPos) * (i/(N-1));
+      } else {
+        const a = Math.log(minPos), b = Math.log(maxPos);
+        v = Math.exp(a + (b-a) * (i/(N-1)));
+      }
+      bins.push(v);
+    }
+    // swatches represent ranges; label by approximate cutoff
+    return bins.map((v,i)=>{
+      const t = normValue(v, minPos, maxPos);
+      return { color: ramp(t), label: i===0 ? `≈ ${money(v)}` : `≈ ${money(v)}` };
+    });
+  }
+
+  // ---- Data access helpers (USAspending) ----
+  // We try multiple filter variants because schemas/accepted keys can vary.
+  // If anything fails, we fall back to DEMO and show the debug payload.
+  const API = "https://api.usaspending.gov/api/v2/search/spending_by_category";
+
+  function fyRange(fy){
+    return { start: `${fy-1}-10-01`, end: `${fy}-09-30` };
+  }
+
+  function baseFilters(){
+    const r = fyRange(state.fy);
+    // CCDF Assistance Listings: 93.575 and 93.596
+    // We'll attempt both assistance_listing_numbers and cfda, because some endpoints accept one vs the other.
+    return [
+      { time_period:[{start_date:r.start, end_date:r.end}], assistance_listing_numbers:["93.575","93.596"] },
+      { time_period:[{start_date:r.start, end_date:r.end}], cfda:["93.575","93.596"] },
+      { time_period:[{start_date:r.start, end_date:r.end}], assistance_listing_numbers:["93.575"] },
+      { time_period:[{start_date:r.start, end_date:r.end}], cfda:["93.575"] },
+    ];
+  }
+
+  async function postJson(url, body){
+    const res = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
+
+  function normalizeAggResults(json){
+    // Many USAspending endpoints return {results:[...]}.
+    // We accept json.results OR json.data OR json.
+    const list = json?.results || json?.data || (Array.isArray(json) ? json : null) || [];
+    return Array.isArray(list) ? list : [];
+  }
+
+  function pickNumber(obj, keys){
+    for (const k of keys){
+      if (typeof obj?.[k] === "number") return obj[k];
+    }
+    return null;
+  }
+
+  function normalizeStateMap(results){
+    const map = {};
+    for (const r of results){
+      const code =
+        r.code || r.state_code || r.state || r.abbreviation ||
+        (typeof r.shape_code === "string" ? r.shape_code : null) ||
+        (typeof r.shape_name === "string" ? r.shape_name.slice(0,2) : null);
+      const amt = pickNumber(r, ["aggregated_amount","aggregatedAmount","amount","total","value","aggregated_obligation","aggregated_outlay"]);
+      if (code && typeof amt === "number") map[String(code).toUpperCase()] = amt;
+    }
+    return map;
+  }
+
+  function normalizeCountyList(results){
+    const out = [];
+    for (const r of results){
+      const code =
+        (typeof r.shape_code === "string" ? r.shape_code : null) ||
+        (typeof r.county_code === "string" ? r.county_code : null) ||
+        (typeof r.fips === "string" ? r.fips : null);
+      const name =
+        r.shape_name || r.county_name || r.name || (code ? `County ${code}` : "County");
+      const amt = pickNumber(r, ["aggregated_amount","amount","total","value","aggregated_obligation","aggregated_outlay"]);
+      if (code && typeof amt === "number") out.push({ code:String(code), name:String(name), amount:amt });
+    }
+    // Sometimes county endpoint returns state totals mixed in; keep 5-digit fips when possible
+    out.sort((a,b)=>b.amount-a.amount);
+    return out;
+  }
+
+  function normalizeRecipientList(results){
+    const out = [];
+    for (const r of results){
+      const name = r.name || r.recipient_name || r.recipient || r.recipient__name || "Recipient";
+      const amt = pickNumber(r, ["aggregated_amount","amount","total","value","aggregated_obligation","aggregated_outlay"]);
+      const awardCount = pickNumber(r, ["award_count","count","number_of_awards"]);
+      if (typeof amt === "number") out.push({ name:String(name), amount:amt, awardCount });
+    }
+    out.sort((a,b)=>b.amount-a.amount);
+    return out;
+  }
+
+  async function loadStatesLive(){
+    const url = `${API}/state_territory/`;
+    const variants = baseFilters();
+    let lastErr = null;
+
+    for (const f of variants){
+      const body = { filters: f, limit: 60, page: 1, sort: "aggregated_amount", order:"desc", subawards:false };
+      try{
+        const json = await postJson(url, body);
+        const results = normalizeAggResults(json);
+        const map = normalizeStateMap(results);
+        const count = Object.keys(map).length;
+        if (count >= 30){
+          state.live.states = map;
+          // total could be sum; we also store an approximate total
+          state.live.total = Object.values(map).reduce((a,b)=>a+b,0);
+          clearToast();
+          return true;
+        }
+        lastErr = new Error(`Parsed only ${count} states`);
+      } catch(e){
+        lastErr = e;
+        showToast(`⚠️ Live state load failed; trying next filter variant…`, { url, body, error: String(e) });
+      }
+    }
+
+    showToast(`❌ Live state load failed — falling back to demo.`, { lastError: String(lastErr) });
+    return false;
+  }
+
+  async function loadCountiesLive(stateCode){
+    const url = `${API}/county/`;
+    const variants = baseFilters();
+
+    const locationVariants = [
+      // Place of performance
+      (f) => ({...f, place_of_performance_locations:[{ country:"USA", state: stateCode }] }),
+      (f) => ({...f, place_of_performance_locations:[{ state: stateCode }] }),
+      (f) => ({...f, place_of_performance_locations:[{ country:"USA", state_code: stateCode }] }),
+      // Recipient location
+      (f) => ({...f, recipient_locations:[{ country:"USA", state: stateCode }] }),
+      (f) => ({...f, recipient_locations:[{ state: stateCode }] }),
+    ];
+
+    let lastErr = null;
+    for (const base of variants){
+      for (const addLoc of locationVariants){
+        const f = addLoc(base);
+        const body = { filters: f, limit: 100, page: 1, sort:"aggregated_amount", order:"desc", subawards:false };
+        try{
+          const json = await postJson(url, body);
+          const results = normalizeAggResults(json);
+          const list = normalizeCountyList(results);
+          if (list.length >= 10){
+            state.live.countiesByState.set(stateCode, list);
+            clearToast();
+            return true;
+          }
+          lastErr = new Error(`Parsed only ${list.length} counties`);
+        } catch(e){
+          lastErr = e;
+          showToast(`⚠️ Live county load failed; trying next variant…`, { url, body, error: String(e) });
+        }
+      }
+    }
+    showToast(`❌ Live county load failed — using demo/fallback county view.`, { lastError: String(lastErr) });
+    return false;
+  }
+
+  async function loadRecipientsLive(stateCode, countyCode){
+    const url = `${API}/recipient/`;
+    const variants = baseFilters();
+
+    const locVariants = [
+      (f) => ({...f, place_of_performance_locations:[{ state: stateCode, county: countyCode }] }),
+      (f) => ({...f, place_of_performance_locations:[{ state: stateCode, county_code: countyCode }] }),
+      (f) => ({...f, recipient_locations:[{ state: stateCode, county: countyCode }] }),
+      (f) => ({...f, recipient_locations:[{ state: stateCode, county_code: countyCode }] }),
+      // If county keys aren't accepted, at least filter to state so you get something meaningful
+      (f) => ({...f, place_of_performance_locations:[{ state: stateCode }] }),
+      (f) => ({...f, recipient_locations:[{ state: stateCode }] }),
+    ];
+
+    let lastErr = null;
+    for (const base of variants){
+      for (const addLoc of locVariants){
+        const f = addLoc(base);
+        const body = { filters: f, limit: 50, page: 1, sort:"aggregated_amount", order:"desc", subawards:false };
+        try{
+          const json = await postJson(url, body);
+          const results = normalizeAggResults(json);
+          const list = normalizeRecipientList(results);
+          if (list.length >= 5){
+            state.live.recipientsByCounty.set(`${stateCode}:${countyCode}`, list);
+            clearToast();
+            return true;
+          }
+          lastErr = new Error(`Parsed only ${list.length} recipients`);
+        } catch(e){
+          lastErr = e;
+          showToast(`⚠️ Live recipient load failed; trying next variant…`, { url, body, error: String(e) });
+        }
+      }
+    }
+    showToast(`❌ Live recipient load failed — using demo/fallback recipient list.`, { lastError: String(lastErr) });
+    return false;
+  }
+
+  // ---- Mode pill ----
+  function setMode(mode){
+    state.mode = mode;
+    const dot = $("#modeDot");
+    const text = $("#modeText");
+    if (mode === "live"){
+      dot.className = "dot good";
+      text.textContent = "LIVE (USAspending) — if available";
+    } else {
+      dot.className = "dot";
+      text.textContent = "DEMO fallback";
+    }
+  }
+
+  // ---- Data getters ----
+  function stateMap(){
+    return (state.mode === "live" && state.live.states) ? state.live.states : DEMO.states;
+  }
+  function stateAmount(code){
+    const m = stateMap();
+    return m[code] || 0;
+  }
+  function countiesFor(code){
+    if (state.mode === "live"){
+      const live = state.live.countiesByState.get(code);
+      if (live && live.length) return live;
+    }
+    if (code === "MN") return DEMO.countiesMN;
+    // fallback synthetic
+    const base = Math.max(stateAmount(code), 10000000);
+    const out = [];
+    let rem = base;
+    for (let i=0;i<12;i++){
+      const part = Math.round(base * (0.06 + i*0.008));
+      rem -= part;
+      out.push({ code:`${code}D${i}`, name:`${code} County ${i+1} (demo)`, amount:part });
+    }
+    out.push({ code:`${code}OTH`, name:"Other counties (grouped)", amount: Math.max(rem,0) });
+    out.sort((a,b)=>b.amount-a.amount);
+    return out;
+  }
+  function recipientsFor(stateCode, countyCode){
+    const key = `${stateCode}:${countyCode}`;
+    if (state.mode === "live"){
+      const live = state.live.recipientsByCounty.get(key);
+      if (live && live.length) return live;
+    }
+    return [
+      { name:"Recipient A (demo)", amount: 4200000, awardCount: 12 },
+      { name:"Recipient B (demo)", amount: 2400000, awardCount: 8 },
+      { name:"Other (demo)", amount: 5100000, awardCount: null }
+    ];
+  }
+
+  // ---- Render: Home web ----
+  function renderHome(){
+    $("#vizTitle").textContent = "Budget web";
+    $("#vizSubtitle").textContent = "Center: Federal Budget. Click Child Care Assistance to drill into states.";
+    $("#panelTitle").textContent = "Navigation";
+    $("#panelSubtitle").textContent = "Click bubbles and tiles to drill down.";
+
+    setCrumbs([{ label:"Home", onClick: () => { state.view="home"; state.selectedState=null; state.selectedCounty=null; render(); } }]);
+
+    const W=900,H=560,cx=W/2,cy=H/2,ringR=200;
+    const amt = (state.mode==="live" && state.live.total) ? state.live.total : DEMO.webTotal;
+
+    const nodes = [
+      { id:"ccdf", label:"Child Care Assistance", sub:"(CCDF / CCAP)", amount: amt, clickable:true, a:"#7C5CFF", b:"#00D7FF" },
+      { id:"medicaid", label:"Medicaid", sub:"(not wired)", amount:0, clickable:false },
+      { id:"medicare", label:"Medicare", sub:"(not wired)", amount:0, clickable:false },
+      { id:"defense", label:"Defense", sub:"(not wired)", amount:0, clickable:false },
+      { id:"social", label:"Social Security", sub:"(not wired)", amount:0, clickable:false },
+      { id:"interest", label:"Net interest", sub:"(not wired)", amount:0, clickable:false },
+    ];
+
+    const max = Math.max(...nodes.filter(n=>n.clickable).map(n=>n.amount), 1);
+    const rad = a => 30 + Math.sqrt(a/max) * 52;
+
+    const angles = [ -70, -15, 40, 95, 150, 205 ].map(d=>d*Math.PI/180);
+    const placed = nodes.map((n,i)=>({
+      ...n,
+      x: cx + ringR*Math.cos(angles[i]),
+      y: cy + ringR*Math.sin(angles[i]),
+      r: n.clickable ? rad(n.amount) : 34
+    }));
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+    const defs = document.createElementNS(svg.namespaceURI,"defs");
+    defs.innerHTML = `
+      <linearGradient id="gradCenter" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0" stop-color="rgba(124,92,255,.95)"/>
+        <stop offset="1" stop-color="rgba(0,215,255,.85)"/>
+      </linearGradient>
+    `;
+    svg.appendChild(defs);
+
+    placed.forEach(n=>{
+      const line = document.createElementNS(svg.namespaceURI,"line");
+      line.setAttribute("x1", cx); line.setAttribute("y1", cy);
+      line.setAttribute("x2", n.x); line.setAttribute("y2", n.y);
+      line.setAttribute("class","link");
+      svg.appendChild(line);
+    });
+
+    const centerG = document.createElementNS(svg.namespaceURI,"g");
+    centerG.setAttribute("class","node glow");
+    const centerC = document.createElementNS(svg.namespaceURI,"circle");
+    centerC.setAttribute("cx", cx); centerC.setAttribute("cy", cy);
+    centerC.setAttribute("r", 98);
+    centerC.setAttribute("fill", "url(#gradCenter)");
+    centerG.appendChild(centerC);
+
+    const t1 = document.createElementNS(svg.namespaceURI,"text");
+    t1.setAttribute("x", cx); t1.setAttribute("y", cy-8);
+    t1.setAttribute("text-anchor","middle");
+    t1.setAttribute("class","label");
+    t1.setAttribute("font-size","16");
+    t1.textContent = "Federal Budget";
+    centerG.appendChild(t1);
+
+    const t2 = document.createElementNS(svg.namespaceURI,"text");
+    t2.setAttribute("x", cx); t2.setAttribute("y", cy+18);
+    t2.setAttribute("text-anchor","middle");
+    t2.setAttribute("class","value");
+    t2.textContent = "Select a branch";
+    centerG.appendChild(t2);
+
+    svg.appendChild(centerG);
+
+    placed.forEach(n=>{
+      const g = document.createElementNS(svg.namespaceURI,"g");
+      g.setAttribute("class", "node" + (n.clickable ? "" : " disabled"));
+
+      const gradId = `grad_${n.id}`;
+      const grad = document.createElementNS(svg.namespaceURI,"linearGradient");
+      grad.setAttribute("id", gradId);
+      grad.setAttribute("x1","0"); grad.setAttribute("x2","1");
+      grad.setAttribute("y1","0"); grad.setAttribute("y2","1");
+      grad.innerHTML = `
+        <stop offset="0" stop-color="${n.a||"#fff"}" stop-opacity="${n.clickable?0.90:0.10}"/>
+        <stop offset="1" stop-color="${n.b||"#fff"}" stop-opacity="${n.clickable?0.80:0.10}"/>
+      `;
+      defs.appendChild(grad);
+
+      const c = document.createElementNS(svg.namespaceURI,"circle");
+      c.setAttribute("cx", n.x); c.setAttribute("cy", n.y);
+      c.setAttribute("r", n.r);
+      c.setAttribute("fill", `url(#${gradId})`);
+      g.appendChild(c);
+
+      const label = document.createElementNS(svg.namespaceURI,"text");
+      label.setAttribute("x", n.x);
+      label.setAttribute("y", n.y - 8);
+      label.setAttribute("text-anchor","middle");
+      label.setAttribute("class","label");
+      label.setAttribute("font-size", n.clickable ? "13" : "12");
+      label.textContent = n.label;
+      g.appendChild(label);
+
+      const val = document.createElementNS(svg.namespaceURI,"text");
+      val.setAttribute("x", n.x);
+      val.setAttribute("y", n.y + 14);
+      val.setAttribute("text-anchor","middle");
+      val.setAttribute("class","value");
+      val.textContent = n.clickable ? money(n.amount) : "—";
+      g.appendChild(val);
+
+      g.addEventListener("mousemove", (ev)=>{
+        const msg = n.clickable
+          ? `${esc(n.sub)}<br><span class="mono">${money(n.amount)}</span><br><span style="color:rgba(255,255,255,.55)">click to view states</span>`
+          : "Not wired";
+        showTip(ev.clientX, ev.clientY, n.label, msg);
+      });
+      g.addEventListener("mouseenter", (ev)=>{
+        const msg = n.clickable
+          ? `${esc(n.sub)}<br><span class="mono">${money(n.amount)}</span><br><span style="color:rgba(255,255,255,.55)">click to view states</span>`
+          : "Not wired";
+        showTip(ev.clientX, ev.clientY, n.label, msg);
+      });
+      g.addEventListener("mouseleave", hideTip);
+
+      g.addEventListener("click", ()=>{
+        if (!n.clickable) return;
+        state.view="states";
+        state.selectedState=null;
+        state.selectedCounty=null;
+        render();
+      });
+
+      svg.appendChild(g);
+    });
+
+    viz.innerHTML = "";
+    viz.appendChild(svg);
+  }
+
+  // ---- Render: State heatmap with labeled legend ----
+  function renderStates(){
+    $("#vizTitle").textContent = "State allocations (federal award obligations)";
+    $("#vizSubtitle").textContent = "Click a state tile → counties. Legend shows approximate $ ranges.";
+
+    setCrumbs([
+      { label:"Home", onClick: () => { state.view="home"; state.selectedState=null; state.selectedCounty=null; render(); } },
+      { label:"Child Care Assistance", onClick: () => { state.view="states"; state.selectedState=null; state.selectedCounty=null; render(); } }
+    ]);
+
+    const m = stateMap();
+    const vals = ALL_STATES.map(s => m[s] || 0).filter(v => v > 0);
+    const minPos = Math.min(...vals, 1);
+    const maxPos = Math.max(...vals, 1);
+
+    const map = document.createElement("div");
+    map.className = "map";
+
+    const slot = new Map();
+    TILEMAP.forEach(([code,c,r]) => slot.set(`${c},${r}`, code));
+    const COLS=12, ROWS=6;
+
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        const key = `${c},${r}`;
+        const code = slot.get(key);
+        const tile = document.createElement("div");
+        tile.className = "tile" + (code ? "" : " empty");
+
+        if (code){
+          const v = m[code] || 0;
+          const t = normValue(v, minPos, maxPos);
+          const col = ramp(t);
+          // Stronger contrast: darker base + more saturated highlight
+          tile.style.background = `linear-gradient(135deg, rgba(0,0,0,.18), ${col}AA)`;
+          tile.style.borderColor = `rgba(255,255,255,${0.12 + 0.28*t})`;
+          tile.textContent = code;
+
+          tile.addEventListener("mousemove",(ev)=>{
+            showTip(ev.clientX, ev.clientY, code, `${money(v)}<br><span style="color:rgba(255,255,255,.55)">click to view counties</span>`);
+          });
+          tile.addEventListener("mouseenter",(ev)=>{
+            showTip(ev.clientX, ev.clientY, code, `${money(v)}<br><span style="color:rgba(255,255,255,.55)">click to view counties</span>`);
+          });
+          tile.addEventListener("mouseleave", hideTip);
+
+          tile.addEventListener("click", async ()=>{
+            state.selectedState = code;
+            state.selectedCounty = null;
+            state.view = "counties";
+            render();
+            if (state.mode === "live" && !state.live.countiesByState.get(code)){
+              await ensureCounties(code);
+              render();
+            }
+          });
+        }
+        map.appendChild(tile);
+      }
+    }
+
+    const legend = document.createElement("div");
+    legend.className = "legend";
+    const sw = buildLegend(minPos, maxPos);
+    legend.innerHTML = `
+      <div class="legendTop">
+        <div class="mono" style="color:rgba(255,255,255,.78)">
+          Range: ${money(minPos)} → ${money(maxPos)}
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span class="pill" title="Color meaning">
+            <span class="dot good"></span>
+            <span>${state.scale.toUpperCase()} scale</span>
+          </span>
+        </div>
+      </div>
+      <div class="legendGrid" id="legendGrid"></div>
+    `;
+    const grid = legend.querySelector("#legendGrid");
+    sw.forEach((b,i)=>{
+      const box = document.createElement("div");
+      box.className = "sw";
+      box.innerHTML = `
+        <div class="chip" style="background:${b.color}CC"></div>
+        <div>
+          <b>${i===0 ? "Lower" : (i===sw.length-1 ? "Higher" : "Mid")}</b><br/>
+          <span>${b.label}</span>
+        </div>
+      `;
+      grid.appendChild(box);
+    });
+
+    viz.innerHTML = "";
+    viz.appendChild(map);
+    viz.appendChild(legend);
+  }
+
+  // ---- Render: Counties ----
+  function renderCounties(){
+    const st = state.selectedState;
+    $("#vizTitle").textContent = `Counties in ${st}`;
+    $("#vizSubtitle").textContent = "Click a county row → recipients (prime award recipients).";
+
+    setCrumbs([
+      { label:"Home", onClick: () => { state.view="home"; state.selectedState=null; state.selectedCounty=null; render(); } },
+      { label:"Child Care Assistance", onClick: () => { state.view="states"; state.selectedState=null; state.selectedCounty=null; render(); } },
+      { label: st, onClick: () => { state.view="counties"; state.selectedCounty=null; render(); } }
+    ]);
+
+    const counties = countiesFor(st).slice().sort((a,b)=>b.amount-a.amount);
+    const max = Math.max(...counties.map(c=>c.amount), 1);
+
+    const wrap = document.createElement("div");
+    wrap.className = "rows";
+
+    counties.forEach(c=>{
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const left = document.createElement("div");
+      left.innerHTML = `<div class="name">${esc(c.name)}</div><div class="meta">${esc(c.code)} • ${money(c.amount)}</div>`;
+
+      const right = document.createElement("div");
+      right.innerHTML = `<div class="heat"><i style="width:${clamp(Math.sqrt(c.amount/max)*100,0,100)}%"></i></div>`;
+
+      row.appendChild(left);
+      row.appendChild(right);
+
+      row.addEventListener("mousemove",(ev)=>{
+        showTip(ev.clientX, ev.clientY, c.name, `${money(c.amount)}<br><span style="color:rgba(255,255,255,.55)">click to view recipients</span>`);
+      });
+      row.addEventListener("mouseenter",(ev)=>{
+        showTip(ev.clientX, ev.clientY, c.name, `${money(c.amount)}<br><span style="color:rgba(255,255,255,.55)">click to view recipients</span>`);
+      });
+      row.addEventListener("mouseleave", hideTip);
+
+      row.addEventListener("click", async ()=>{
+        state.selectedCounty = c;
+        state.view = "recipients";
+        render();
+        if (state.mode === "live" && !state.live.recipientsByCounty.get(`${st}:${c.code}`)){
+          await ensureRecipients(st, c.code);
+          render();
+        }
+      });
+
+      wrap.appendChild(row);
+    });
+
+    viz.innerHTML = "";
+    viz.appendChild(wrap);
+  }
+
+  // ---- Render: Recipients ----
+  function renderRecipients(){
+    const st = state.selectedState;
+    const c = state.selectedCounty;
+    $("#vizTitle").textContent = "Recipients";
+    $("#vizSubtitle").textContent = `${st} • ${c.name} — prime award recipients (not provider payouts)`;
+
+    setCrumbs([
+      { label:"Home", onClick: () => { state.view="home"; state.selectedState=null; state.selectedCounty=null; render(); } },
+      { label:"Child Care Assistance", onClick: () => { state.view="states"; state.selectedState=null; state.selectedCounty=null; render(); } },
+      { label: st, onClick: () => { state.view="counties"; state.selectedCounty=null; render(); } },
+      { label: c.name, onClick: () => { state.view="recipients"; render(); } }
+    ]);
+
+    const rows = recipientsFor(st, c.code).slice();
+
+    const container = document.createElement("div");
+
+    const controls = document.createElement("div");
+    controls.className = "search";
+    controls.innerHTML = `
+      <input class="grow" type="text" id="q" placeholder="Search recipients…" />
+      <select id="sort">
+        <option value="amount_desc" selected>Sort: Amount (desc)</option>
+        <option value="amount_asc">Sort: Amount (asc)</option>
+        <option value="name_asc">Sort: Name (A→Z)</option>
+        <option value="name_desc">Sort: Name (Z→A)</option>
+      </select>
+      <button class="btn" id="csvBtn">⬇ Export CSV</button>
+    `;
+
+    const tableWrap = document.createElement("div");
+    tableWrap.style.padding = "0 14px 14px";
+
+    const table = document.createElement("table");
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Recipient</th>
+          <th class="right">Amount</th>
+          <th class="right">Award count</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    `;
+    tableWrap.appendChild(table);
+
+    container.appendChild(controls);
+    container.appendChild(tableWrap);
+
+    function apply(){
+      const q = (container.querySelector("#q").value || "").toLowerCase().trim();
+      const s = container.querySelector("#sort").value;
+
+      let filtered = rows.filter(r => !q || r.name.toLowerCase().includes(q));
+      if (s==="amount_desc") filtered.sort((a,b)=>b.amount-a.amount);
+      if (s==="amount_asc")  filtered.sort((a,b)=>a.amount-b.amount);
+      if (s==="name_asc")    filtered.sort((a,b)=>a.name.localeCompare(b.name));
+      if (s==="name_desc")   filtered.sort((a,b)=>b.name.localeCompare(a.name));
+
+      const tb = container.querySelector("#tbody");
+      tb.innerHTML = "";
+      filtered.forEach(r=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><b>${esc(r.name)}</b></td>
+          <td class="right mono">${money(r.amount)}</td>
+          <td class="right mono">${r.awardCount ?? "—"}</td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+
+    function toCsv(list){
+      const head = ["recipient","amount","award_count"];
+      const lines = [head.join(",")];
+      list.forEach(r=>{
+        lines.push([
+          `"${String(r.name).replace(/"/g,'""')}"`,
+          String(Math.round(r.amount||0)),
+          String(r.awardCount ?? "")
+        ].join(","));
+      });
+      return lines.join("\n");
+    }
+    function downloadCsv(){
+      const q = (container.querySelector("#q").value || "").toLowerCase().trim();
+      const filtered = rows.filter(r => !q || r.name.toLowerCase().includes(q));
+      const blob = new Blob([toCsv(filtered)], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `recipients_${st}_${c.code}_FY${state.fy}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    container.addEventListener("input", (e)=>{ if(e.target?.id==="q") apply(); });
+    container.addEventListener("change", (e)=>{ if(e.target?.id==="sort") apply(); });
+    container.addEventListener("click", (e)=>{ if(e.target?.id==="csvBtn") downloadCsv(); });
+
+    viz.innerHTML = "";
+    viz.appendChild(container);
+    apply();
+  }
+
+  // ---- Live loaders with UI feedback ----
+  async function ensureLive(){
+    state.loading = true;
+    setMode("live");
+    showToast(`Loading LIVE state totals… <span class="spinner"></span>`);
+    const ok = await loadStatesLive();
+    if (!ok){
+      setMode("demo");
+      state.mode = "demo";
+      state.loading = false;
+      return;
+    }
+    state.mode = "live";
+    state.loading = false;
+    showToast(`✅ LIVE loaded. Drill into a state for counties / recipients.`, null);
+  }
+
+  async function ensureCounties(code){
+    showToast(`Loading LIVE counties for ${code}… <span class="spinner"></span>`);
+    const ok = await loadCountiesLive(code);
+    if (ok) showToast(`✅ LIVE counties loaded for ${code}.`, null);
+  }
+
+  async function ensureRecipients(st, county){
+    showToast(`Loading LIVE recipients for ${st} ${county}… <span class="spinner"></span>`);
+    const ok = await loadRecipientsLive(st, county);
+    if (ok) showToast(`✅ LIVE recipients loaded.`, null);
+  }
+
+  // ---- Render switch ----
+  function render(){
+    hideTip();
+    if (state.view==="home") renderHome();
+    if (state.view==="states") renderStates();
+    if (state.view==="counties") renderCounties();
+    if (state.view==="recipients") renderRecipients();
+  }
+
+  // ---- Wiring ----
+  $("#resetBtn").addEventListener("click", ()=>{
+    state.view="home";
+    state.selectedState=null;
+    state.selectedCounty=null;
+    render();
+  });
+
+  $("#reloadBtn").addEventListener("click", async ()=>{
+    state.live.total = null;
+    state.live.states = null;
+    state.live.countiesByState.clear();
+    state.live.recipientsByCounty.clear();
+    await ensureLive();
+    render();
+  });
+
+  $("#fySelect").addEventListener("change", async (e)=>{
+    state.fy = Number(e.target.value);
+    state.live.total = null;
+    state.live.states = null;
+    state.live.countiesByState.clear();
+    state.live.recipientsByCounty.clear();
+    await ensureLive();
+    render();
+  });
+
+  $("#scaleSelect").addEventListener("change", (e)=>{
+    state.scale = e.target.value;
+    render();
+  });
+
+  // ---- Boot: try live first; if it fails, show demo but keep UI usable ----
+  (async ()=>{
+    await ensureLive();
+    if (state.mode !== "live"){
+      // demo fallback
+      setMode("demo");
+      state.mode="demo";
+    }
+    render();
+  })();
+})();
+</script>
+</body>
+</html>
